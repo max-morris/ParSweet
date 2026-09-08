@@ -17,7 +17,7 @@ public class ALock implements SlimLock {
 
     @Override
     public void lock() {
-        var slot = tail.getAndIncrement() % flags.length;
+        var slot = Math.floorMod(tail.getAndIncrement(), flags.length);
         mySlotIndex.set(slot);
         while (!flags[slot].get()) {
             Thread.yield();
@@ -28,7 +28,7 @@ public class ALock implements SlimLock {
     @Override
     public void unlock() {
         var slot = mySlotIndex.get();
-        var next = (slot + 1) % flags.length;
+        var next = Math.floorMod(slot + 1, flags.length);
         flags[next].set(true);
     }
 }

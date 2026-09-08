@@ -41,7 +41,7 @@ namespace parallel_suite::maps {
         }
 
         usize getBucketIndexOfKey(K key) {
-            return std::hash<K>{}(key) % (NumBuckets - 1);
+            return std::hash<K>{}(key) % NumBuckets;
         }
 
     public:

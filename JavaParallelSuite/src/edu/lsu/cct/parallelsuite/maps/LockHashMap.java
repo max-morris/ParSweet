@@ -151,6 +151,6 @@ public class LockHashMap<K, V> implements SlimMap<K, V> {
     }
 
     private int getBucketIndexOfKey(K key) {
-        return key.hashCode() % (N_BUCKETS - 1);
+        return Math.floorMod(key.hashCode(), N_BUCKETS);
     }
 }

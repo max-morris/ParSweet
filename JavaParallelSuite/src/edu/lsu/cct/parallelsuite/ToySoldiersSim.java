@@ -16,8 +16,10 @@ public class ToySoldiersSim {
     private final Supplier<Lock> lockSupplier;
 
     private int soldierCount;
-    private final Lock countLock;
-    private final Condition countCond;
+    // Count wait needs a real Condition; custom spinlocks in this suite do not provide one.
+    private final Lock countLock = new ReentrantLock();
+    private final Condition countCond = countLock.newCondition();
+    private volatile boolean running = true;
 
     public ToySoldiersSim(int rows, int cols) {
         this(rows, cols, ReentrantLock::new);
@@ -28,8 +30,6 @@ public class ToySoldiersSim {
         this.cols = cols;
         this.lockSupplier = lockSupplier;
         this.soldierCount = 0;
-        this.countLock = lockSupplier.get();
-        this.countCond = countLock.newCondition();
 
         this.tiles = new Tile[rows][cols];
         for (int r = 0; r < rows; r++) {
@@ -78,6 +78,44 @@ public class ToySoldiersSim {
         } finally {
             countLock.unlock();
         }
+    }
+
+    public void stop() {
+        running = false;
+    }
+
+    public int getSoldierCount() {
+        countLock.lock();
+        try {
+            return soldierCount;
+        } finally {
+            countLock.unlock();
+        }
+    }
+
+    public boolean tilesAreConsistent() {
+        var seen = new java.util.HashSet<Integer>();
+        int occupants = 0;
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                var t = tiles[r][c];
+                t.lock.lock();
+                try {
+                    if (t.occupant != null) {
+                        occupants++;
+                        if (!seen.add(t.occupant.id)) {
+                            return false;
+                        }
+                        if (t.occupant.row != r || t.occupant.col != c) {
+                            return false;
+                        }
+                    }
+                } finally {
+                    t.lock.unlock();
+                }
+            }
+        }
+        return occupants <= getSoldierCount();
     }
 
     public boolean inBounds(int row, int col) {
@@ -271,7 +309,7 @@ public class ToySoldiersSim {
 
         @Override
         public void run() {
-            while (getLife() > 0) {
+            while (running && getLife() > 0) {
                 step();
             }
         }

@@ -99,6 +99,27 @@ add_executable(TestMaps
                maps/MapTypes.hpp
                maps/SetBasedMap.hpp)
 
+add_executable(TestToySoldiers
+               bench/test/TestToySoldiers.cpp
+               toysoldiers/ToySoldiersSim.hpp)
+
+add_executable(TestQueue
+               bench/test/TestQueue.cpp
+               queues/TwoLockQueue.hpp)
+
+add_executable(TestBuffer
+               bench/test/TestBuffer.cpp
+               buffers/BoundedBuffer.hpp)
+
+add_executable(TestAccounts
+               bench/test/TestAccounts.cpp
+               accounts/AccountLedger.hpp)
+
+add_executable(TestFairness
+               bench/test/TestFairness.cpp
+               threadlocal/ThreadLocal.hpp
+               threadlocal/ThreadId.cpp)
+
 if (HPX_FOUND)
     add_hpx_executable(BenchLocks
                        SOURCES bench/BenchLocks.cpp
@@ -164,6 +185,27 @@ else ()
                    locks/LockTraits.hpp)
 endif ()
 
+add_executable(BenchQueue
+               bench/Bench.hpp
+               bench/BenchQueue.cpp
+               bench/BlackBox.hpp
+               queues/TwoLockQueue.hpp)
+
+add_executable(BenchBuffer
+               bench/Bench.hpp
+               bench/BenchBuffer.cpp
+               bench/BlackBox.hpp
+               buffers/BoundedBuffer.hpp)
+
+add_executable(BenchAccountByLocks
+               bench/Bench.hpp
+               bench/BenchAccountByLocks.cpp
+               bench/BlackBox.hpp
+               accounts/AccountLedger.hpp
+               threadlocal/ThreadLocalRand.cpp
+               threadlocal/ThreadId.cpp
+               locks/LockTraits.hpp)
+
 link_libraries(Threads::Threads)
 
 enable_testing()
@@ -176,3 +218,22 @@ add_test(NAME TestSets
          COMMAND ./TestSets)
 add_test(NAME TestMaps
          COMMAND ./TestMaps)
+add_test(NAME TestToySoldiers
+         COMMAND ./TestToySoldiers)
+add_test(NAME TestQueue
+         COMMAND ./TestQueue)
+add_test(NAME TestBuffer
+         COMMAND ./TestBuffer)
+add_test(NAME TestAccounts
+         COMMAND ./TestAccounts)
+add_test(NAME TestFairness
+         COMMAND ./TestFairness)
+set_tests_properties(TestToySoldiers PROPERTIES TIMEOUT 60)
+set_tests_properties(TestBarrier PROPERTIES TIMEOUT 60)
+set_tests_properties(TestLocks PROPERTIES TIMEOUT 120)
+set_tests_properties(TestSets PROPERTIES TIMEOUT 120)
+set_tests_properties(TestMaps PROPERTIES TIMEOUT 120)
+set_tests_properties(TestQueue PROPERTIES TIMEOUT 60)
+set_tests_properties(TestBuffer PROPERTIES TIMEOUT 60)
+set_tests_properties(TestAccounts PROPERTIES TIMEOUT 60)
+set_tests_properties(TestFairness PROPERTIES TIMEOUT 120)

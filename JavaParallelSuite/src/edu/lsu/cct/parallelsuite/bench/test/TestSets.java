@@ -3,6 +3,7 @@ package edu.lsu.cct.parallelsuite.bench.test;
 import edu.lsu.cct.parallelsuite.bench.Misc;
 import edu.lsu.cct.parallelsuite.sets.FineGrainedSet;
 import edu.lsu.cct.parallelsuite.sets.LazySet;
+import edu.lsu.cct.parallelsuite.sets.LockHashSet;
 import edu.lsu.cct.parallelsuite.sets.OptimisticSet;
 
 import java.util.LinkedList;
@@ -15,8 +16,8 @@ import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
 public class TestSets {
-    private static final int THREADS = 12;
-    private static final int WORK_SIZE = 1000 / THREADS;
+    private static final int THREADS = Misc.nThreads(12);
+    private static final int WORK_SIZE = Math.max(1, 1000 / THREADS);
     private static final int WORK_RANGE = 15;
 
     private static final ExecutorService pool = Executors.newFixedThreadPool(THREADS, Misc.getDaemonThreadFactory());
@@ -153,18 +154,16 @@ public class TestSets {
             baseSeed = rand.get().nextLong();
         }
 
-        public ControllerC(Supplier<Set<String>> setSupplier, long baseSeed) {
-            super(setSupplier);
-            this.baseSeed = baseSeed;
-        }
-
         @Override
         public void test() {
             mutate(referenceImpl);
             mutate(setImpl);
 
-            for (String e : referenceImpl) {
-                assert setImpl.contains(e);
+            for (int t = 0; t < THREADS; t++) {
+                for (int i = 0; i < WORK_RANGE; i++) {
+                    var token = mkString(t, i);
+                    assert setImpl.contains(token) == referenceImpl.contains(token);
+                }
             }
         }
 
@@ -190,24 +189,56 @@ public class TestSets {
         }
     }
 
+    private static class ControllerD extends Controller<Integer> {
+        public ControllerD(Supplier<Set<Integer>> setSupplier) {
+            super(setSupplier);
+        }
+
+        @Override
+        public void test() {
+            var futs = new LinkedList<CompletableFuture<?>>();
+            for (int t = 0; t < THREADS; t++) {
+                final var threadId = t;
+                futs.add(CompletableFuture.runAsync(() -> {
+                    var rand = new Random((threadId + 1L) * 2654435761L);
+                    for (int i = 0; i < WORK_SIZE; i++) {
+                        setImpl.add(rand.nextInt(WORK_RANGE));
+                        setImpl.remove(rand.nextInt(WORK_RANGE));
+                        setImpl.contains(rand.nextInt(WORK_RANGE));
+                    }
+                }, pool));
+            }
+            for (var fut : futs) {
+                fut.join();
+            }
+
+            for (int k = 0; k < WORK_RANGE; k++) {
+                var present = setImpl.contains(k);
+                if (present) {
+                    assert setImpl.remove(k);
+                    assert !setImpl.contains(k);
+                } else {
+                    assert setImpl.add(k);
+                    assert setImpl.contains(k);
+                }
+            }
+        }
+    }
+
     private static String mkString(int threadId, int n) {
         return String.format("%d_%d", threadId, n);
     }
 
     private static void testSet(Supplier<Set<Integer>> intSetSupplier, Supplier<Set<String>> stringSetSupplier) {
-        Controller<?> testA = new ControllerA(intSetSupplier),
-                      testB = new ControllerB(stringSetSupplier),
-                      testC = new ControllerC(stringSetSupplier);
-
-        testA.test();
-        testB.test();
-        testC.test();
+        new ControllerA(intSetSupplier).test();
+        new ControllerB(stringSetSupplier).test();
+        new ControllerC(stringSetSupplier).test();
+        new ControllerD(intSetSupplier).test();
     }
 
     private static void testSets() {
-        // Sanity check: Standard Java implementation
         testSet(ConcurrentHashMap::newKeySet, ConcurrentHashMap::newKeySet);
-
+        testSet(LockHashSet::new, LockHashSet::new);
         testSet(FineGrainedSet::new, FineGrainedSet::new);
         testSet(OptimisticSet::new, OptimisticSet::new);
         testSet(LazySet::new, LazySet::new);
@@ -216,12 +247,13 @@ public class TestSets {
     private static final int TIMES = 5;
 
     public static void main(String[] args) {
-        boolean assertionsOn = false;
-        assert assertionsOn = true;
+        boolean assertionsOn = Misc.assertionsEnabled();
         System.out.printf("Assertions are %s.%n", assertionsOn ? "ON" : "OFF");
 
         for (int i = 0; i < TIMES; i++) {
             testSets();
         }
+        pool.shutdown();
+        System.out.println("All tests passed.");
     }
 }

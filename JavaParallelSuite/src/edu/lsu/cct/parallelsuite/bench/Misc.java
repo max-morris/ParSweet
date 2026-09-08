@@ -11,4 +11,20 @@ public class Misc {
             return t;
         };
     }
+
+    public static int nThreads(int defaultN) {
+        var env = System.getenv("PSWEET_NTHREADS");
+        if (env == null || env.isEmpty()) {
+            return defaultN;
+        }
+        var n = Integer.parseInt(env);
+        return n > 0 ? n : defaultN;
+    }
+
+    public static boolean assertionsEnabled() {
+        var enabled = false;
+        //noinspection ConstantConditions,AssertWithSideEffects
+        assert enabled = true;
+        return enabled;
+    }
 }

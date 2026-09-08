@@ -42,7 +42,7 @@ namespace parallel_suite::sets {
         }
 
         usize getBucketIndex(T const& val) {
-            return std::hash<T>{}(val) % (NumBuckets - 1);
+            return std::hash<T>{}(val) % NumBuckets;
         }
 
     public:

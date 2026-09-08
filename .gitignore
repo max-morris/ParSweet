@@ -1,4 +1,9 @@
 /JavaParallelSuite/out/
+/JavaParallelSuite/build/
 /CppParallelSuite/cmake-build*
+/CppParallelSuite/build/
 /**/.idea/
 /JavaParallelSuite/srcRoot
+psweet.csv
+psweet.tex
+
