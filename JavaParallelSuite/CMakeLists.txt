@@ -28,6 +28,7 @@ add_jar(ParallelSuite
     ./src/edu/lsu/cct/parallelsuite/sets/OptimisticSet.java
     ./src/edu/lsu/cct/parallelsuite/sets/SlimSet.java
     ./src/edu/lsu/cct/parallelsuite/locks/ALock.java
+    ./src/edu/lsu/cct/parallelsuite/locks/OptimizedALock.java
     ./src/edu/lsu/cct/parallelsuite/locks/BackoffLock.java
     ./src/edu/lsu/cct/parallelsuite/locks/CLHLock.java
     ./src/edu/lsu/cct/parallelsuite/locks/TwoCounterLock.java
