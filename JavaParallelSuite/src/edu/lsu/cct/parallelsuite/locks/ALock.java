@@ -9,6 +9,9 @@ public class ALock implements SlimLock {
     private final AtomicBoolean[] flags;
 
     public ALock(int threadCount) {
+        if (threadCount <= 0) {
+            throw new IllegalArgumentException("threadCount must be positive");
+        }
         flags = new AtomicBoolean[threadCount];
         for (int i = 0; i < threadCount; i++) {
             flags[i] = new AtomicBoolean(i == 0);

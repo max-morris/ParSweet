@@ -21,6 +21,8 @@ namespace parallel_suite::locks {
 
     public:
         ALock() : mySlotIndex(), tail(0), flags() {
+            static_assert(ThreadCount > 0, "ThreadCount must be positive");
+
             for (int i = 0; i < ThreadCount; ++i) {
                 flags[i] = (i == 0);
             }
