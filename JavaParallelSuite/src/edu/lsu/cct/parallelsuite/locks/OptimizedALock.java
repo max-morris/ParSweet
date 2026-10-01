@@ -1,7 +1,7 @@
 package edu.lsu.cct.parallelsuite.locks;
 
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Anderson lock matching C++ OptimizedALock.
@@ -29,7 +29,13 @@ public class OptimizedALock implements SlimLock {
     private static final int STRIDE = 16;
 
     private final ThreadLocal<Integer> mySlotIndex = new ThreadLocal<>();
-    private final AtomicInteger tail = new AtomicInteger(0);
+    // 64-bit, like C++'s std::atomic<usize>. A 32-bit counter wraps after
+    // 2^31 acquisitions, and unless threadCount is a power of two the slot
+    // sequence then jumps back (e.g. 7 -> 4 for threadCount 12) while the
+    // release goes to the next slot (8), so the lock hangs or admits two
+    // threads at once. At one acquisition per nanosecond, 2^63 takes ~292
+    // years.
+    private final AtomicLong tail = new AtomicLong(0);
     private final AtomicIntegerArray flags;
     private final int threadCount;
 
@@ -48,8 +54,8 @@ public class OptimizedALock implements SlimLock {
 
     @Override
     public void lock() {
-        // floorMod: AtomicInteger wraps to negative; Java % would then be negative.
-        var slot = Math.floorMod(tail.getAndIncrement(), threadCount);
+        // tail never goes negative in practice (see above), so % is enough.
+        var slot = (int) (tail.getAndIncrement() % threadCount);
         mySlotIndex.set(slot);
         var idx = flagIndex(slot);
         while (flags.get(idx) == 0) {
