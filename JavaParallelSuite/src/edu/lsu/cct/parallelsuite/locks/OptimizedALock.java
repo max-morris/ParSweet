@@ -61,7 +61,7 @@ public class OptimizedALock implements SlimLock {
     @Override
     public void unlock() {
         var slot = mySlotIndex.get();
-        var next = Math.floorMod(slot + 1, threadCount);
+        var next = (slot + 1) % threadCount;
         flags.set(flagIndex(next), 1);
     }
 
