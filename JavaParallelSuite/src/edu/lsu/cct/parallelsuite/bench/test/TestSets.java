@@ -3,6 +3,7 @@ package edu.lsu.cct.parallelsuite.bench.test;
 import edu.lsu.cct.parallelsuite.bench.Misc;
 import edu.lsu.cct.parallelsuite.sets.FineGrainedSet;
 import edu.lsu.cct.parallelsuite.sets.LazySet;
+import edu.lsu.cct.parallelsuite.sets.LockHashSet;
 import edu.lsu.cct.parallelsuite.sets.OptimisticSet;
 
 import java.util.LinkedList;
@@ -208,6 +209,7 @@ public class TestSets {
         // Sanity check: Standard Java implementation
         testSet(ConcurrentHashMap::newKeySet, ConcurrentHashMap::newKeySet);
 
+        testSet(LockHashSet::new, LockHashSet::new);
         testSet(FineGrainedSet::new, FineGrainedSet::new);
         testSet(OptimisticSet::new, OptimisticSet::new);
         testSet(LazySet::new, LazySet::new);
