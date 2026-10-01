@@ -1,11 +1,16 @@
 package edu.lsu.cct.parallelsuite.locks;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ALock implements SlimLock {
     private final ThreadLocal<Integer> mySlotIndex = new ThreadLocal<>();
-    private final AtomicInteger tail = new AtomicInteger(0);
+    // 64-bit, like C++'s std::atomic<usize>. A 32-bit counter goes negative
+    // after 2^31 acquisitions, and % then yields a negative slot, which
+    // throws ArrayIndexOutOfBoundsException. floorMod would not help: it
+    // breaks the slot sequence instead (see OptimizedALock). At one
+    // acquisition per nanosecond, 2^63 takes ~292 years.
+    private final AtomicLong tail = new AtomicLong(0);
     private final AtomicBoolean[] flags;
 
     public ALock(int threadCount) {
@@ -20,7 +25,7 @@ public class ALock implements SlimLock {
 
     @Override
     public void lock() {
-        var slot = tail.getAndIncrement() % flags.length;
+        var slot = (int) (tail.getAndIncrement() % flags.length);
         mySlotIndex.set(slot);
         while (!flags[slot].get()) {
             Thread.yield();
