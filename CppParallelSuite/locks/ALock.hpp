@@ -3,24 +3,27 @@
 #define ALOCK_HPP
 
 #include "../Types.hpp"
-#include "../threadlocal/ThreadLocal.hpp"
 #include "LockTraits.hpp"
 #include <array>
 #include <atomic>
 #include <thread>
 
 namespace parallel_suite::locks {
-    using namespace threadlocal;
-
     template <usize ThreadCount>
     class ALock {
     private:
-        ThreadLocal<usize, ThreadCount> mySlotIndex;
         std::atomic<usize> tail;
         std::array<std::atomic<bool>, ThreadCount> flags;
+        // Slot of the thread that holds the lock. Only the holder touches it:
+        // written after acquiring, read in unlock() before the release. The
+        // flag hand-off (seq_cst store, then load by the next holder) orders
+        // each holder's accesses before the next's, so a plain member is
+        // race-free. A ThreadLocal<usize, ThreadCount> indexed by
+        // ThreadId % ThreadCount could let two threads share an entry.
+        usize heldSlot;
 
     public:
-        ALock() : mySlotIndex(), tail(0), flags() {
+        ALock() : tail(0), flags(), heldSlot(0) {
             static_assert(ThreadCount > 0, "ThreadCount must be positive");
 
             for (int i = 0; i < ThreadCount; ++i) {
@@ -30,16 +33,15 @@ namespace parallel_suite::locks {
 
         void lock() {
             auto slot = tail.fetch_add(1) % ThreadCount;
-            mySlotIndex.set(slot);
             while (!flags[slot]) {
                 std::this_thread::yield();
             }
             flags[slot] = false;
+            heldSlot = slot;
         }
 
         void unlock() {
-            auto slot = mySlotIndex.get();
-            auto next = (slot + 1) % ThreadCount;
+            auto next = (heldSlot + 1) % ThreadCount;
             flags[next] = true;
         }
     };
