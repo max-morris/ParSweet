@@ -14,6 +14,15 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
  * lines can still false-share adjacent slots. Java ALock's AtomicBoolean
  * objects are separately allocated but can still sit on one line; the
  * stride is what makes this variant the padded one.
+ *
+ * Slot k lives at index (k + 1) * STRIDE: one STRIDE of ints pads the
+ * front of the array. The array itself is not cache-line aligned, but
+ * slot 0 is then at least 64 bytes past the end of the header, so no
+ * 64-byte line holds both slot 0 and the header or anything allocated
+ * just before the array (such as the AtomicIntegerArray wrapper and the
+ * tail counter). No trailing pad is needed: each flag is the first int of
+ * its own STRIDE-int cell, so the rest of the last cell keeps the last
+ * slot off whatever follows the array. C++ gets this from alignas.
  */
 public class OptimizedALock implements SlimLock {
     // 16 ints * 4 bytes. Assumes 64-byte lines; see class comment.
@@ -28,13 +37,13 @@ public class OptimizedALock implements SlimLock {
         if (threadCount <= 0) {
             throw new IllegalArgumentException("threadCount must be positive");
         }
-        // threadCount * STRIDE must fit in an int array length.
-        if (threadCount > Integer.MAX_VALUE / STRIDE) {
+        // (threadCount + 1) * STRIDE must fit in an int array length.
+        if (threadCount > Integer.MAX_VALUE / STRIDE - 1) {
             throw new IllegalArgumentException("threadCount too large");
         }
         this.threadCount = threadCount;
-        this.flags = new AtomicIntegerArray(threadCount * STRIDE);
-        flags.set(0, 1);
+        this.flags = new AtomicIntegerArray((threadCount + 1) * STRIDE);
+        flags.set(flagIndex(0), 1);
     }
 
     @Override
@@ -42,7 +51,7 @@ public class OptimizedALock implements SlimLock {
         // floorMod: AtomicInteger wraps to negative; Java % would then be negative.
         var slot = Math.floorMod(tail.getAndIncrement(), threadCount);
         mySlotIndex.set(slot);
-        var idx = slot * STRIDE;
+        var idx = flagIndex(slot);
         while (flags.get(idx) == 0) {
             Thread.yield();
         }
@@ -53,6 +62,11 @@ public class OptimizedALock implements SlimLock {
     public void unlock() {
         var slot = mySlotIndex.get();
         var next = Math.floorMod(slot + 1, threadCount);
-        flags.set(next * STRIDE, 1);
+        flags.set(flagIndex(next), 1);
+    }
+
+    // Array index of slot's flag; see the class comment for the layout.
+    private static int flagIndex(int slot) {
+        return (slot + 1) * STRIDE;
     }
 }
