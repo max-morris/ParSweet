@@ -6,6 +6,6 @@
 * Each commit should be bite-sized, i.e. small enough for a human to reasonably review. Keep the diff < 500 lines unless there's a good reason not to.
 * Get a human to examine the work between each commit.
 * Generated code should be well-commented.
-* Before each commit, spawn a harsh reviewer session. If the review finds problems. fix them and repeat this step.
+* Before each commit, spawn a harsh reviewer session. If the review finds problems, fix them and repeat this step.
 * Maintain the coding style already present in the repo.
 * Never leave an exception catch block empty. If you think it will never trigger, insert a print statement and make it a fatal error.
