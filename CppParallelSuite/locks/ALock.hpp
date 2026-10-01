@@ -3,44 +3,16 @@
 #define ALOCK_HPP
 
 #include "../Types.hpp"
-#include "../threadlocal/ThreadLocal.hpp"
+#include "AndersonLock.hpp"
 #include "LockTraits.hpp"
-#include <array>
 #include <atomic>
-#include <thread>
 
 namespace parallel_suite::locks {
-    using namespace threadlocal;
-
+    // Unpadded Anderson lock matching Java ALock; see detail::AndersonLock.
+    // Flags are packed one std::atomic<bool> apart, so neighboring slots
+    // share cache lines.
     template <usize ThreadCount>
-    class ALock {
-    private:
-        ThreadLocal<usize, ThreadCount> mySlotIndex;
-        std::atomic<usize> tail;
-        std::array<std::atomic<bool>, ThreadCount> flags;
-
-    public:
-        ALock() : mySlotIndex(), tail(0), flags() {
-            for (int i = 0; i < ThreadCount; ++i) {
-                flags[i] = (i == 0);
-            }
-        }
-
-        void lock() {
-            auto slot = tail.fetch_add(1) % ThreadCount;
-            mySlotIndex.set(slot);
-            while (!flags[slot]) {
-                std::this_thread::yield();
-            }
-            flags[slot] = false;
-        }
-
-        void unlock() {
-            auto slot = mySlotIndex.get();
-            auto next = (slot + 1) % ThreadCount;
-            flags[next] = true;
-        }
-    };
+    class ALock : public detail::AndersonLock<ThreadCount, alignof(std::atomic<bool>)> {};
 
     template <usize ThreadCount>
     struct LockTraits<ALock<ThreadCount>> {

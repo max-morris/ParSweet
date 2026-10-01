@@ -3,55 +3,17 @@
 #define OPTIMIZED_ALOCK_HPP
 
 #include "../Types.hpp"
-#include "../threadlocal/ThreadLocal.hpp"
+#include "AndersonLock.hpp"
 #include "LockTraits.hpp"
-#include <array>
-#include <atomic>
-#include <thread>
+#include <new>
 
 namespace parallel_suite::locks {
-    using namespace threadlocal;
-
+    // Padded Anderson lock matching Java OptimizedALock; see
+    // detail::AndersonLock. Each flag is aligned to
+    // hardware_destructive_interference_size, giving every slot its own
+    // cache line.
     template <usize ThreadCount>
-    class OptimizedALock {
-        template <typename T>
-        struct alignas(std::hardware_destructive_interference_size) Cell {
-            T data;
-
-            Cell() : data() {}
-
-            T& operator*() {
-                return data;
-            }
-        };
-
-    private:
-        ThreadLocal<usize, ThreadCount> mySlotIndex;
-        std::atomic<usize> tail;
-        std::array<Cell<std::atomic<bool>>, ThreadCount> flags;
-
-    public:
-        OptimizedALock() : mySlotIndex(), tail(0), flags() {
-            for (int i = 0; i < ThreadCount; ++i) {
-                *flags[i] = (i == 0);
-            }
-        }
-
-        void lock() {
-            auto slot = tail.fetch_add(1) % ThreadCount;
-            mySlotIndex.set(slot);
-            while (!*flags[slot]) {
-                std::this_thread::yield();
-            }
-            *flags[slot] = false;
-        }
-
-        void unlock() {
-            auto slot = mySlotIndex.get();
-            auto next = (slot + 1) % ThreadCount;
-            *flags[next] = true;
-        }
-    };
+    class OptimizedALock : public detail::AndersonLock<ThreadCount, std::hardware_destructive_interference_size> {};
 
     template <usize ThreadCount>
     struct LockTraits<OptimizedALock<ThreadCount>> {

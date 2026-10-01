@@ -79,6 +79,7 @@ public class TestLocks {
                 TASLock::new,
                 TTASLock::new,
                 () -> new ALock(THREADS),
+                () -> new OptimizedALock(THREADS),
                 BackoffLock::new,
                 TwoCounterLock::new,
                 CLHLock::new,
