@@ -81,7 +81,8 @@ add_executable(TestLocks
                locks/IdLock.hpp
                locks/TIdLock.hpp
                locks/TwoCounterLock.hpp
-               locks/OptimizedALock.hpp)
+               locks/OptimizedALock.hpp
+               locks/AndersonLock.hpp)
 
 add_executable(TestSets
                bench/test/TestSets.cpp

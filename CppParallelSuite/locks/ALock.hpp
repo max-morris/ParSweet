@@ -3,48 +3,16 @@
 #define ALOCK_HPP
 
 #include "../Types.hpp"
+#include "AndersonLock.hpp"
 #include "LockTraits.hpp"
-#include <array>
 #include <atomic>
-#include <thread>
 
 namespace parallel_suite::locks {
+    // Unpadded Anderson lock matching Java ALock; see detail::AndersonLock.
+    // Flags are packed one std::atomic<bool> apart, so neighboring slots
+    // share cache lines.
     template <usize ThreadCount>
-    class ALock {
-    private:
-        std::atomic<usize> tail;
-        std::array<std::atomic<bool>, ThreadCount> flags;
-        // Slot of the thread that holds the lock. Only the holder touches it:
-        // written after acquiring, read in unlock() before the release. The
-        // flag hand-off (seq_cst store, then load by the next holder) orders
-        // each holder's accesses before the next's, so a plain member is
-        // race-free. A ThreadLocal<usize, ThreadCount> indexed by
-        // ThreadId % ThreadCount could let two threads share an entry.
-        usize heldSlot;
-
-    public:
-        ALock() : tail(0), flags(), heldSlot(0) {
-            static_assert(ThreadCount > 0, "ThreadCount must be positive");
-
-            for (int i = 0; i < ThreadCount; ++i) {
-                flags[i] = (i == 0);
-            }
-        }
-
-        void lock() {
-            auto slot = tail.fetch_add(1) % ThreadCount;
-            while (!flags[slot]) {
-                std::this_thread::yield();
-            }
-            flags[slot] = false;
-            heldSlot = slot;
-        }
-
-        void unlock() {
-            auto next = (heldSlot + 1) % ThreadCount;
-            flags[next] = true;
-        }
-    };
+    class ALock : public detail::AndersonLock<ThreadCount, alignof(std::atomic<bool>)> {};
 
     template <usize ThreadCount>
     struct LockTraits<ALock<ThreadCount>> {
