@@ -28,6 +28,10 @@ public class OptimizedALock implements SlimLock {
         if (threadCount <= 0) {
             throw new IllegalArgumentException("threadCount must be positive");
         }
+        // threadCount * STRIDE must fit in an int array length.
+        if (threadCount > Integer.MAX_VALUE / STRIDE) {
+            throw new IllegalArgumentException("threadCount too large");
+        }
         this.threadCount = threadCount;
         this.flags = new AtomicIntegerArray(threadCount * STRIDE);
         flags.set(0, 1);
