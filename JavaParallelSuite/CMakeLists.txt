@@ -7,8 +7,6 @@ enable_testing()
 
 project (ParallelSuite NONE)
 
-# Use the JDK CMake found. The sources need var, so Java 10 is the oldest
-# that works. --release is that compiler's version rather than a pinned 10.
 if(NOT Java_VERSION_MAJOR OR Java_VERSION_MAJOR LESS 10)
     message(FATAL_ERROR "Java ${Java_VERSION} is too old. The sources need Java 10 or newer.")
 endif()
