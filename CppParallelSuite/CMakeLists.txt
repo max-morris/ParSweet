@@ -125,9 +125,9 @@ add_executable(BenchSets
                bench/BlackBox.hpp
                sets/LockHashSet.hpp)
 
-add_executable(BenchWideWatch
+add_executable(BenchAccumulator
                bench/Bench.hpp
-               bench/BenchWideWatch.cpp
+               bench/BenchAccumulator.cpp
                bench/BlackBox.hpp
                threadlocal/ThreadId.cpp
                threadlocal/ThreadLocalRand.cpp

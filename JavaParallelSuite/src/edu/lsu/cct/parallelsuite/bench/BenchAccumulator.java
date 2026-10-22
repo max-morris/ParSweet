@@ -22,24 +22,24 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
- * One lock per flag. A short job locks one flag. A long job locks every flag
- * from 0 upward, does busy work while holding them all, and unlocks from the
- * last flag back down. That one order is what keeps the long jobs from
- * deadlocking with each other or with a short job. The lower thread ids run
- * that mix. When there is more than one thread and there are short jobs,
+ * Accumulator benchmark. Each flag has its own lock. A short job locks one
+ * flag, does busy work, and increments that flag. A long job locks every
+ * flag from first to last, does busy work while holding them, increments
+ * each, and unlocks from last back to first. That order keeps the long jobs
+ * from deadlocking with each other or with a short job.
+ * When PSWEET_OPS is positive and even and more than one thread is running,
  * the higher ids, half of the threads rounded down, only run short jobs.
- * Nothing holds those threads in a round, so overlap with a long job is
- * not guaranteed. One thread, or zero short jobs, means every thread runs
- * the long jobs.
+ * They do a fixed number of short jobs and then finish. One thread, an odd
+ * count, or zero means every thread runs the long jobs.
  *
  * C++ also times std::mutex and std::recursive_mutex. The JDK lock here is
  * ReentrantLock, which covers both roles.
  */
-public final class BenchWideWatch {
+public final class BenchAccumulator {
     private static final int DEFAULT_FLAGS = 32;
-    private static final int DEFAULT_SHORT = 8;
+    private static final int DEFAULT_SHORT = 7;
 
-    private BenchWideWatch() {
+    private BenchAccumulator() {
     }
 
     public static void main(String[] args) {
@@ -52,7 +52,7 @@ public final class BenchWideWatch {
     }
 
     private static void run() throws Exception {
-        var params = new BenchParameters("java", "wideWatch");
+        var params = new BenchParameters("java", "accumulator");
         int nFlags = BenchParameters.optionalInt("PSWEET_WATCHES", DEFAULT_FLAGS);
         int nShort = BenchParameters.optionalInt("PSWEET_OPS", DEFAULT_SHORT);
         int slots = andersonSlots();
@@ -145,7 +145,7 @@ public final class BenchWideWatch {
         long[] expect = expected(nThreads, work, nFlags, nShort, nLong);
         for (int flag = 0; flag < nFlags; flag++) {
             if (hits[flag].value != expect[flag]) {
-                throw new IllegalStateException("wideWatch flag " + flag + " count " + hits[flag].value + " expected " + expect[flag]);
+                throw new IllegalStateException("accumulator flag " + flag + " count " + hits[flag].value + " expected " + expect[flag]);
             }
         }
     }
@@ -156,11 +156,12 @@ public final class BenchWideWatch {
         return (int) (index % nFlags);
     }
 
-    // How many threads run long jobs. The rest only run short jobs. A single
-    // thread has to run the long jobs itself, and zero short jobs means there
-    // is nothing else for a thread to do.
+    // How many threads run long jobs. The rest only run short jobs, and only
+    // when the short-job count is positive and even. A single thread has to
+    // run the long jobs itself. An odd count, or zero, means every thread
+    // runs them. Half, rounded down, are the higher ids.
     private static int longWorkers(int nThreads, int nShort) {
-        if (nShort <= 0 || nThreads <= 1) {
+        if (nShort <= 0 || nShort % 2 != 0 || nThreads <= 1) {
             return nThreads;
         }
         return nThreads - nThreads / 2;
@@ -186,8 +187,9 @@ public final class BenchWideWatch {
     private static void shortJob(Lock lock, Hit hit) {
         lock.lock();
         try {
+            int mix = busy(1);
             hit.value += 1;
-            BlackBox.consume(busy(1));
+            BlackBox.consume(mix);
         } finally {
             lock.unlock();
         }
@@ -199,9 +201,12 @@ public final class BenchWideWatch {
             for (int i = 0; i < locks.length; i++) {
                 locks[i].lock();
                 held++;
+            }
+            int mix = busy(locks.length);
+            for (int i = 0; i < hits.length; i++) {
                 hits[i].value += 1;
             }
-            BlackBox.consume(busy(locks.length));
+            BlackBox.consume(mix);
         } finally {
             for (int i = held - 1; i >= 0; i--) {
                 locks[i].unlock();
