@@ -25,7 +25,12 @@ import java.util.function.Supplier;
  * One lock per flag. A short job locks one flag. A long job locks every flag
  * from 0 upward, does busy work while holding them all, and unlocks from the
  * last flag back down. That one order is what keeps the long jobs from
- * deadlocking with each other or with a short job.
+ * deadlocking with each other or with a short job. The lower thread ids run
+ * that mix. When there is more than one thread and there are short jobs,
+ * the higher ids, half of the threads rounded down, only run short jobs.
+ * Nothing holds those threads in a round, so overlap with a long job is
+ * not guaranteed. One thread, or zero short jobs, means every thread runs
+ * the long jobs.
  *
  * C++ also times std::mutex and std::recursive_mutex. The JDK lock here is
  * ReentrantLock, which covers both roles.
@@ -97,18 +102,22 @@ public final class BenchWideWatch {
         }
 
         // A fixed pool, not the common pool: PSWEET_NTHREADS is how many handlers run at once.
+        int nLong = longWorkers(nThreads, nShort);
         ExecutorService pool = Executors.newFixedThreadPool(nThreads);
         try {
             var workers = new ArrayList<Future<?>>(nThreads);
             for (int t = 0; t < nThreads; t++) {
                 final int threadId = t;
+                final boolean shortsOnly = threadId >= nLong;
                 workers.add(pool.submit(() -> {
                     for (int round = 0; round < work; round++) {
                         for (int step = 0; step < nShort; step++) {
                             int flag = flagFor(round, step, threadId, nShort, nFlags);
                             shortJob(locks[flag], hits[flag]);
                         }
-                        longJob(locks, hits);
+                        if (!shortsOnly) {
+                            longJob(locks, hits);
+                        }
                     }
                 }));
             }
@@ -133,7 +142,7 @@ public final class BenchWideWatch {
             pool.shutdown();
         }
 
-        long[] expect = expected(nThreads, work, nFlags, nShort);
+        long[] expect = expected(nThreads, work, nFlags, nShort, nLong);
         for (int flag = 0; flag < nFlags; flag++) {
             if (hits[flag].value != expect[flag]) {
                 throw new IllegalStateException("wideWatch flag " + flag + " count " + hits[flag].value + " expected " + expect[flag]);
@@ -147,9 +156,20 @@ public final class BenchWideWatch {
         return (int) (index % nFlags);
     }
 
-    private static long[] expected(int nThreads, int work, int nFlags, int nShort) {
+    // How many threads run long jobs. The rest only run short jobs. A single
+    // thread has to run the long jobs itself, and zero short jobs means there
+    // is nothing else for a thread to do.
+    private static int longWorkers(int nThreads, int nShort) {
+        if (nShort <= 0 || nThreads <= 1) {
+            return nThreads;
+        }
+        return nThreads - nThreads / 2;
+    }
+
+    private static long[] expected(int nThreads, int work, int nFlags, int nShort, int nLong) {
         var expect = new long[nFlags];
-        long longs = nThreads * (long) work;
+        // Each long job adds one to every flag. Short jobs are counted below.
+        long longs = nLong * (long) work;
         for (int flag = 0; flag < nFlags; flag++) {
             expect[flag] = longs;
         }

@@ -26,7 +26,12 @@
 // One lock per flag. A short job locks one flag. A long job locks every flag
 // from 0 upward, does busy work while holding them all, and unlocks from the
 // last flag back down. That one order is what keeps the long jobs from
-// deadlocking with each other or with a short job.
+// deadlocking with each other or with a short job. The lower thread ids run
+// that mix. When there is more than one thread and there are short jobs,
+// the higher ids, half of the threads rounded down, only run short jobs.
+// Nothing holds those threads in a round, so overlap with a long job is
+// not guaranteed. One thread, or zero short jobs, means every thread runs
+// the long jobs.
 
 namespace parallel_bench::wide_watch {
     using namespace parallel_suite;
@@ -46,6 +51,16 @@ namespace parallel_bench::wide_watch {
     int flagFor(long long round, int step, long long threadId, int nShort, int nFlags) {
         long long index = round * nShort + step + threadId;
         return static_cast<int>(index % nFlags);
+    }
+
+    // How many threads run long jobs. The rest only run short jobs. A single
+    // thread has to run the long jobs itself, and zero short jobs means there
+    // is nothing else for a thread to do.
+    int longWorkers(usize nThreads, int nShort) {
+        if (nShort <= 0 || nThreads <= 1) {
+            return static_cast<int>(nThreads);
+        }
+        return static_cast<int>(nThreads - nThreads / 2);
     }
 
     // Padded so two flags' counters do not share a cache line. The trial is
@@ -94,17 +109,21 @@ namespace parallel_bench::wide_watch {
         }
         std::vector<Hit> hits(static_cast<usize>(nFlags));
 
+        int nLong = longWorkers(nThreads, nShort);
         std::vector<std::thread> workers;
         workers.reserve(nThreads);
         for (usize t = 0; t < nThreads; ++t) {
-            workers.emplace_back([&locks, &hits, t, work, nFlags, nShort]() {
+            workers.emplace_back([&locks, &hits, t, work, nFlags, nShort, nLong]() {
                 try {
+                    bool shortsOnly = static_cast<long long>(t) >= nLong;
                     for (usize round = 0; round < work; ++round) {
                         for (int step = 0; step < nShort; ++step) {
                             int flag = flagFor(static_cast<long long>(round), step, static_cast<long long>(t), nShort, nFlags);
                             shortJob(*locks[flag], hits[flag]);
                         }
-                        longJob(locks, hits);
+                        if (!shortsOnly) {
+                            longJob(locks, hits);
+                        }
                     }
                 } catch (std::exception const& ex) {
                     std::cerr << "wideWatch worker: " << ex.what() << std::endl;
@@ -117,7 +136,8 @@ namespace parallel_bench::wide_watch {
             worker.join();
         }
 
-        std::vector<long long> expect(static_cast<usize>(nFlags), static_cast<long long>(nThreads) * static_cast<long long>(work));
+        // Each long job adds one to every flag. Short jobs are counted below.
+        std::vector<long long> expect(static_cast<usize>(nFlags), static_cast<long long>(nLong) * static_cast<long long>(work));
         for (usize t = 0; t < nThreads; ++t) {
             for (usize round = 0; round < work; ++round) {
                 for (int step = 0; step < nShort; ++step) {

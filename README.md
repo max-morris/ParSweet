@@ -23,7 +23,7 @@ Benchmarks expect the following environment variables at runtime:
 Weaker machines may need this to avoid benchmark results being confounded by thermal throttling. If absent, defaults to 0 (no sleep occurs).
 * PSWEET_WHICH (Optional) - Specifies which individual test to run within one benchmark program. If absent, the entire benchmark runs.
 * PSWEET_WATCHES (Optional, BenchWideWatch) - Flags, each with its own lock. A long job locks them from first to last. Default 32.
-* PSWEET_OPS (Optional, BenchWideWatch) - Short jobs before each long job. A short job locks one flag. Default 8. Zero means every job is long.
+* PSWEET_OPS (Optional, BenchWideWatch) - Short jobs before each long job. A short job locks one flag. Default 8. Zero means every job is long. When this is positive and more than one thread is running, the higher thread ids, half of the threads rounded down, only do short jobs.
 
 ## How? (Java)
 Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches.
