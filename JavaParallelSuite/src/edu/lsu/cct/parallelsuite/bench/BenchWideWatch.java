@@ -11,8 +11,6 @@ import edu.lsu.cct.parallelsuite.locks.TIdLock;
 import edu.lsu.cct.parallelsuite.locks.TTASLock;
 import edu.lsu.cct.parallelsuite.locks.TwoCounterLock;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -24,20 +22,17 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
- * Wide-watch completion (benchmarks.md candidate 11), blocking-lock policy only.
- *
- * Each delayed operation watches every key. An event scans all of that
- * operation's keys while holding its lock. The scan is the critical section:
- * watch width, not the lock algorithm, sets the hold time. tryLock-helping
- * and the async completer are not in this program. Suite spin locks throw
- * from tryLock, so those policies cannot sweep the same backends.
+ * One lock per flag. A short job locks one flag. A long job locks every flag
+ * from 0 upward, does busy work while holding them all, and unlocks from the
+ * last flag back down. That one order is what keeps the long jobs from
+ * deadlocking with each other or with a short job.
  *
  * C++ also times std::mutex and std::recursive_mutex. The JDK lock here is
  * ReentrantLock, which covers both roles.
  */
 public final class BenchWideWatch {
-    private static final int DEFAULT_WATCHES = 32;
-    private static final int DEFAULT_OPS = 8;
+    private static final int DEFAULT_FLAGS = 32;
+    private static final int DEFAULT_SHORT = 8;
 
     private BenchWideWatch() {
     }
@@ -53,14 +48,14 @@ public final class BenchWideWatch {
 
     private static void run() throws Exception {
         var params = new BenchParameters("java", "wideWatch");
-        int watches = BenchParameters.optionalInt("PSWEET_WATCHES", DEFAULT_WATCHES);
-        int nOps = BenchParameters.optionalInt("PSWEET_OPS", DEFAULT_OPS);
+        int nFlags = BenchParameters.optionalInt("PSWEET_WATCHES", DEFAULT_FLAGS);
+        int nShort = BenchParameters.optionalInt("PSWEET_OPS", DEFAULT_SHORT);
         int slots = andersonSlots();
         if (params.getNThreads() <= 0 || params.getNThreads() > slots) {
             throw new IllegalArgumentException("PSWEET_NTHREADS must be in 1.." + slots);
         }
-        if (params.getWorkPerThread() <= 0 || watches <= 0 || nOps <= 0) {
-            throw new IllegalArgumentException("PSWEET_WORK_PER_THREAD, PSWEET_WATCHES, and PSWEET_OPS must be positive");
+        if (params.getWorkPerThread() <= 0 || nFlags <= 0 || nShort < 0) {
+            throw new IllegalArgumentException("PSWEET_WORK_PER_THREAD and PSWEET_WATCHES must be positive");
         }
 
         // slots matches C++ N_THREADS_ALLOC so the Anderson rings are the same size.
@@ -84,7 +79,7 @@ public final class BenchWideWatch {
             }
             ran = true;
             System.out.println("Bench: " + lock.name);
-            long ms = measure(() -> runOne(lock.supplier, params.getNThreads(), params.getWorkPerThread(), watches, nOps));
+            long ms = measure(() -> runOne(lock.supplier, params.getNThreads(), params.getWorkPerThread(), nFlags, nShort));
             params.writeResult(lock.name, ms);
             params.coolOff();
         }
@@ -93,10 +88,12 @@ public final class BenchWideWatch {
         }
     }
 
-    private static void runOne(Supplier<Lock> locks, int nThreads, int work, int watches, int nOps) {
-        var ops = new ArrayList<Op>(nOps);
-        for (int i = 0; i < nOps; i++) {
-            ops.add(new Op(locks.get(), watches));
+    private static void runOne(Supplier<Lock> supply, int nThreads, int work, int nFlags, int nShort) {
+        var locks = new Lock[nFlags];
+        var hits = new Hit[nFlags];
+        for (int i = 0; i < nFlags; i++) {
+            locks[i] = supply.get();
+            hits[i] = new Hit();
         }
 
         // A fixed pool, not the common pool: PSWEET_NTHREADS is how many handlers run at once.
@@ -104,14 +101,14 @@ public final class BenchWideWatch {
         try {
             var workers = new ArrayList<Future<?>>(nThreads);
             for (int t = 0; t < nThreads; t++) {
+                final int threadId = t;
                 workers.add(pool.submit(() -> {
                     for (int round = 0; round < work; round++) {
-                        for (int key = 0; key < watches; key++) {
-                            // Op index order is the only lock order, so two handlers cannot deadlock.
-                            for (Op op : ops) {
-                                op.onKey(key);
-                            }
+                        for (int step = 0; step < nShort; step++) {
+                            int flag = flagFor(round, step, threadId, nShort, nFlags);
+                            shortJob(locks[flag], hits[flag]);
                         }
+                        longJob(locks, hits);
                     }
                 }));
             }
@@ -136,13 +133,70 @@ public final class BenchWideWatch {
             pool.shutdown();
         }
 
-        for (Op op : ops) {
-            for (int key = 0; key < watches; key++) {
-                if ((byte) Op.SEEN.getOpaque(op.seen, key) != 1) {
-                    throw new IllegalStateException("wideWatch missed a completion");
+        long[] expect = expected(nThreads, work, nFlags, nShort);
+        for (int flag = 0; flag < nFlags; flag++) {
+            if (hits[flag].value != expect[flag]) {
+                throw new IllegalStateException("wideWatch flag " + flag + " count " + hits[flag].value + " expected " + expect[flag]);
+            }
+        }
+    }
+
+    // Which flag a short job locks. The same formula builds the expected counts.
+    private static int flagFor(long round, int step, long threadId, int nShort, int nFlags) {
+        long index = round * nShort + step + threadId;
+        return (int) (index % nFlags);
+    }
+
+    private static long[] expected(int nThreads, int work, int nFlags, int nShort) {
+        var expect = new long[nFlags];
+        long longs = nThreads * (long) work;
+        for (int flag = 0; flag < nFlags; flag++) {
+            expect[flag] = longs;
+        }
+        for (int t = 0; t < nThreads; t++) {
+            for (int round = 0; round < work; round++) {
+                for (int step = 0; step < nShort; step++) {
+                    expect[flagFor(round, step, t, nShort, nFlags)] += 1;
                 }
             }
         }
+        return expect;
+    }
+
+    private static void shortJob(Lock lock, Hit hit) {
+        lock.lock();
+        try {
+            hit.value += 1;
+            BlackBox.consume(busy(1));
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private static void longJob(Lock[] locks, Hit[] hits) {
+        int held = 0;
+        try {
+            for (int i = 0; i < locks.length; i++) {
+                locks[i].lock();
+                held++;
+                hits[i].value += 1;
+            }
+            BlackBox.consume(busy(locks.length));
+        } finally {
+            for (int i = held - 1; i >= 0; i--) {
+                locks[i].unlock();
+            }
+        }
+    }
+
+    // Busy work whose length is the argument. The multiply wraps in a signed
+    // int, which Java defines, and BlackBox.consume keeps the loop alive.
+    private static int busy(int steps) {
+        int mix = 1;
+        for (int i = 0; i < steps; i++) {
+            mix = mix * 33 + 1;
+        }
+        return mix;
     }
 
     private static long measure(Runnable work) {
@@ -178,38 +232,10 @@ public final class BenchWideWatch {
         }
     }
 
-    private static final class Op {
-        // Opaque byte accesses match C++ relaxed atomic<char>: one byte,
-        // no acquire/release. Plain loads can be deleted; volatile loads
-        // are acquire and four times wider.
-        private static final VarHandle SEEN = MethodHandles.arrayElementVarHandle(byte[].class);
-
-        private final Lock lock;
-        private final byte[] seen;
-
-        private Op(Lock lock, int watches) {
-            this.lock = lock;
-            this.seen = new byte[watches];
-        }
-
-        private void onKey(int key) {
-            int mix = 0;
-            lock.lock();
-            try {
-                if ((byte) SEEN.getOpaque(seen, key) == 0) {
-                    SEEN.setOpaque(seen, key, (byte) 1);
-                }
-                mix = 1;
-                for (int k = 0; k < seen.length; k++) {
-                    int bit = (byte) SEEN.getOpaque(seen, k) == 0 ? 0 : 1;
-                    // Wrapping multiply keeps every key in the result. A plain
-                    // countdown would let the JIT turn a finished scan into O(1).
-                    mix = mix * 33 + bit;
-                }
-            } finally {
-                lock.unlock();
-            }
-            BlackBox.consume(mix);
-        }
+    // value plus seven longs is 64 bytes of payload, so two counters do not
+    // share the line that holds value. The trial is measuring the locks.
+    private static final class Hit {
+        private long value;
+        private long pad0, pad1, pad2, pad3, pad4, pad5, pad6;
     }
 }

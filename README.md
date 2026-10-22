@@ -22,13 +22,13 @@ Benchmarks expect the following environment variables at runtime:
 * PSWEET_COOLDOWN (Optional) - How long, in milliseconds, to sleep between individual tests within one benchmark program. 
 Weaker machines may need this to avoid benchmark results being confounded by thermal throttling. If absent, defaults to 0 (no sleep occurs).
 * PSWEET_WHICH (Optional) - Specifies which individual test to run within one benchmark program. If absent, the entire benchmark runs.
-* PSWEET_WATCHES (Optional, BenchWideWatch) - Keys each delayed operation scans under its lock. Default 32.
-* PSWEET_OPS (Optional, BenchWideWatch) - Delayed operations, each with its own lock. Default 8.
+* PSWEET_WATCHES (Optional, BenchWideWatch) - Flags, each with its own lock. A long job locks them from first to last. Default 32.
+* PSWEET_OPS (Optional, BenchWideWatch) - Short jobs before each long job. A short job locks one flag. Default 8. Zero means every job is long.
 
 ## How? (Java)
 Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches.
 
-BenchWideWatch is a main class in ParallelSuite.jar. It calls BlackBox.consume on the scan result so the JIT cannot delete that loop, matching C++ blackBox.
+BenchWideWatch is a main class in ParallelSuite.jar. It calls BlackBox.consume on the busy-work result so the JIT cannot delete that loop, matching C++ blackBox.
 
     PSWEET_NTHREADS=4 PSWEET_WORK_PER_THREAD=100 PSWEET_MACHINE=laptop \
       java -cp JavaParallelSuite/build/ParallelSuite.jar edu.lsu.cct.parallelsuite.bench.BenchWideWatch
