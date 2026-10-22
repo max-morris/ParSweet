@@ -37,7 +37,7 @@ append to a file whose header differs from its own (such as one written before t
 its settings. Summarize results with `utils/psweet_stats.py`, using `--hpx-threads` to select one worker count.
 
 ## How? (Java)
-TODO
+Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches. BlackBox.consume keeps a computed value alive so the JIT cannot delete it, matching C++ blackBox.
 
 ## Who?
 See AUTHORS.
