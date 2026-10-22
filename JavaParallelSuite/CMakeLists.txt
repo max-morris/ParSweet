@@ -7,7 +7,11 @@ enable_testing()
 
 project (ParallelSuite NONE)
 
-set(CMAKE_JAVA_COMPILE_FLAGS "-source" "1.10" "-target" "1.10")
+if(NOT Java_VERSION_MAJOR OR Java_VERSION_MAJOR LESS 10)
+    message(FATAL_ERROR "Java ${Java_VERSION} is too old. The sources need Java 10 or newer.")
+endif()
+message(STATUS "Compiling Java sources for release ${Java_VERSION_MAJOR}")
+set(CMAKE_JAVA_COMPILE_FLAGS --release "${Java_VERSION_MAJOR}")
 
 add_jar(ParallelSuite 
     ./src/edu/lsu/cct/parallelsuite/Barrier.java 
