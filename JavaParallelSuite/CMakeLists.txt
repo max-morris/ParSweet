@@ -25,6 +25,7 @@ add_jar(ParallelSuite
     ./src/edu/lsu/cct/parallelsuite/sets/FindCallback.java
     ./src/edu/lsu/cct/parallelsuite/sets/FineGrainedSet.java
     ./src/edu/lsu/cct/parallelsuite/sets/LazySet.java
+    ./src/edu/lsu/cct/parallelsuite/sets/LockHashSet.java
     ./src/edu/lsu/cct/parallelsuite/sets/OptimisticSet.java
     ./src/edu/lsu/cct/parallelsuite/sets/SlimSet.java
     ./src/edu/lsu/cct/parallelsuite/locks/AndersonLock.java
