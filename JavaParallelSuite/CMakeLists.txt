@@ -13,6 +13,7 @@ add_jar(ParallelSuite
     ./src/edu/lsu/cct/parallelsuite/Barrier.java 
     ./src/edu/lsu/cct/parallelsuite/ThreadId.java 
     ./src/edu/lsu/cct/parallelsuite/bench/Misc.java
+    ./src/edu/lsu/cct/parallelsuite/bench/BenchParameters.java
     ./src/edu/lsu/cct/parallelsuite/bench/test/TestToySoldiers.java
     ./src/edu/lsu/cct/parallelsuite/bench/test/TestBarrier.java
     ./src/edu/lsu/cct/parallelsuite/bench/test/TestSets.java

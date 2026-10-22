@@ -24,7 +24,7 @@ Weaker machines may need this to avoid benchmark results being confounded by the
 * PSWEET_WHICH (Optional) - Specifies which individual test to run within one benchmark program. If absent, the entire benchmark runs.
 
 ## How? (Java)
-TODO
+Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches.
 
 ## Who?
 See AUTHORS.
