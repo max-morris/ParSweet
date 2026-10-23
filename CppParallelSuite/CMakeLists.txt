@@ -119,6 +119,13 @@ add_executable(TuneBackoffLock
                threadlocal/ThreadId.cpp
                threadlocal/ThreadLocalRand.cpp)
 
+add_executable(BenchTransaction
+               bench/Bench.hpp
+               bench/BenchTransaction.cpp
+               threadlocal/ThreadId.cpp
+               threadlocal/ThreadLocalRand.cpp
+               locks/LockTraits.hpp)
+
 add_executable(BenchSets
                bench/Bench.hpp
                bench/BenchSets.cpp

@@ -22,9 +22,17 @@ Benchmarks expect the following environment variables at runtime:
 * PSWEET_COOLDOWN (Optional) - How long, in milliseconds, to sleep between individual tests within one benchmark program. 
 Weaker machines may need this to avoid benchmark results being confounded by thermal throttling. If absent, defaults to 0 (no sleep occurs).
 * PSWEET_WHICH (Optional) - Specifies which individual test to run within one benchmark program. If absent, the entire benchmark runs.
+* PSWEET_WATCHES (Optional, BenchTransaction) - Integer locations. Each commit locks them from first to last. Default 32. Must be at least 5.
 
 ## How? (Java)
 Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches.
+
+BenchTransaction is a main class in ParallelSuite.jar. Each thread commits PSWEET_WORK_PER_THREAD times. An attempt reads 3 to 5 locations, locks every location, and increments the smallest if those values are unchanged.
+
+    PSWEET_NTHREADS=4 PSWEET_WORK_PER_THREAD=100 PSWEET_MACHINE=laptop \
+      java -cp JavaParallelSuite/build/ParallelSuite.jar edu.lsu.cct.parallelsuite.bench.BenchTransaction
+
+The C++ binary is CppParallelSuite/build/BenchTransaction.
 
 ## Who?
 See AUTHORS.
