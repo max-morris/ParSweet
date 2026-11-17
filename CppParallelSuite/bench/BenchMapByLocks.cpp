@@ -15,6 +15,7 @@
 #include "../locks/TIdLock.hpp"
 #include "../locks/TTASLock.hpp"
 #include "../locks/TwoCounterLock.hpp"
+#include "../locks/TwoCounterSemaphore.hpp"
 #include "../maps/LockHashMap.hpp"
 #include "../maps/MapTypes.hpp"
 #if HAVE_HPX
@@ -223,7 +224,8 @@ int main() {
               locks::TASLock,
               locks::TIdLock,
               locks::TTASLock,
-              locks::TwoCounterLock>(params, "LockHashMap", params.getWhich());
+              locks::TwoCounterLock,
+              locks::TwoCounterSemaphore<1>>(params, "LockHashMap", params.getWhich());
 
 #if HAVE_HPX
     if (params.getUseHpx()) {
