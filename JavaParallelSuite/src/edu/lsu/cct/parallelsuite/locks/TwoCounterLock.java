@@ -1,14 +1,21 @@
 package edu.lsu.cct.parallelsuite.locks;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Ticket lock.
+ *
+ * The counters are longs, matching C++ TwoCounterLock, whose usize counters
+ * are 64 bits on 64-bit targets. The != test would be correct with wrapping
+ * ints too.
+ */
 public class TwoCounterLock implements SlimLock {
-    private final AtomicInteger currentTicket = new AtomicInteger(0);
-    private final AtomicInteger ticketDispenser = new AtomicInteger(0);
+    private final AtomicLong currentTicket = new AtomicLong(0);
+    private final AtomicLong ticketCounter = new AtomicLong(0);
 
     @Override
     public void lock() {
-        var myTicket = ticketDispenser.getAndIncrement();
+        var myTicket = ticketCounter.getAndIncrement();
 
         // wait for my ticket to come up
         while(currentTicket.get() != myTicket) {
