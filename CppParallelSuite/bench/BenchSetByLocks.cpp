@@ -17,6 +17,7 @@
 #include "../locks/TIdLock.hpp"
 #include "../locks/TTASLock.hpp"
 #include "../locks/TwoCounterLock.hpp"
+#include "../locks/TwoCounterSemaphore.hpp"
 #include "../sets/FineGrainedSet.hpp"
 
 #include "BlackBox.hpp"
@@ -203,7 +204,8 @@ int main() {
               locks::TASLock,
               locks::TIdLock,
               locks::TTASLock,
-              locks::TwoCounterLock>(params, "FineGrainedSet", params.getWhich());
+              locks::TwoCounterLock,
+              locks::TwoCounterSemaphore<1>>(params, "FineGrainedSet", params.getWhich());
 
 #if HAVE_HPX
     if (params.getUseHpx()) {
