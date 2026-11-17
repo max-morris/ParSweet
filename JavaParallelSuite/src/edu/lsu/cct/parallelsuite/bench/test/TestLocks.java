@@ -82,6 +82,7 @@ public class TestLocks {
                 () -> new OptimizedALock(THREADS),
                 BackoffLock::new,
                 TwoCounterLock::new,
+                () -> new TwoCounterSemaphore(1),
                 CLHLock::new,
                 MCSLock::new,
                 IdLock::new,

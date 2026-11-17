@@ -81,6 +81,7 @@ add_executable(TestLocks
                locks/IdLock.hpp
                locks/TIdLock.hpp
                locks/TwoCounterLock.hpp
+               locks/TwoCounterSemaphore.hpp
                locks/OptimizedALock.hpp
                locks/AndersonLock.hpp)
 

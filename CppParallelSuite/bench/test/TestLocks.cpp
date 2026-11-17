@@ -9,6 +9,7 @@
 #include "../../locks/TIdLock.hpp"
 #include "../../locks/TTASLock.hpp"
 #include "../../locks/TwoCounterLock.hpp"
+#include "../../locks/TwoCounterSemaphore.hpp"
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -83,7 +84,8 @@ int main() {
             MCSLock,
             IdLock,
             TIdLock,
-            TwoCounterLock>();
+            TwoCounterLock,
+            TwoCounterSemaphore<1>>();
 
     return ok ? 0
               : 0xBAD;
