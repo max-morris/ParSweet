@@ -17,6 +17,7 @@ add_jar(ParallelSuite
     ./src/edu/lsu/cct/parallelsuite/bench/test/TestBarrier.java
     ./src/edu/lsu/cct/parallelsuite/bench/test/TestSets.java
     ./src/edu/lsu/cct/parallelsuite/bench/test/TestLocks.java
+    ./src/edu/lsu/cct/parallelsuite/bench/test/TestSemaphores.java
     ./src/edu/lsu/cct/parallelsuite/bench/test/TestMaps.java
     ./src/edu/lsu/cct/parallelsuite/maps/SlimMap.java
     ./src/edu/lsu/cct/parallelsuite/maps/SetBasedMap.java
@@ -34,6 +35,7 @@ add_jar(ParallelSuite
     ./src/edu/lsu/cct/parallelsuite/locks/BackoffLock.java
     ./src/edu/lsu/cct/parallelsuite/locks/CLHLock.java
     ./src/edu/lsu/cct/parallelsuite/locks/TwoCounterLock.java
+    ./src/edu/lsu/cct/parallelsuite/locks/TwoCounterSemaphore.java
     ./src/edu/lsu/cct/parallelsuite/locks/MCSLock.java
     ./src/edu/lsu/cct/parallelsuite/locks/SlimLock.java
     ./src/edu/lsu/cct/parallelsuite/locks/TASLock.java
@@ -52,3 +54,7 @@ add_test(NAME TestParallelJavaBarrier COMMAND ${Java_JAVA_EXECUTABLE} -ea -cp ${
 add_test(NAME TestParallelJavaSets COMMAND ${Java_JAVA_EXECUTABLE} -ea -cp ${_jarFile} edu.lsu.cct.parallelsuite.bench.test.TestSets)
 add_test(NAME TestParallelJavaMaps COMMAND ${Java_JAVA_EXECUTABLE} -ea -cp ${_jarFile} edu.lsu.cct.parallelsuite.bench.test.TestMaps)
 add_test(NAME TestParallelJavaLocks COMMAND ${Java_JAVA_EXECUTABLE} -ea -cp ${_jarFile} edu.lsu.cct.parallelsuite.bench.test.TestLocks)
+add_test(NAME TestParallelJavaSemaphores COMMAND ${Java_JAVA_EXECUTABLE} -ea -cp ${_jarFile} edu.lsu.cct.parallelsuite.bench.test.TestSemaphores)
+# A semaphore that admits too few holders hangs rather than failing; the
+# timeout turns that hang into a test failure.
+set_tests_properties(TestParallelJavaSemaphores PROPERTIES TIMEOUT 3600)
