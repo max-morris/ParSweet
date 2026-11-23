@@ -12,7 +12,9 @@ endif ()
 
 check_cxx_compiler_flag(-pthread HAVE_PTHREAD)
 if (HAVE_PTHREAD)
-    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-pthread")
+    # CMAKE_CXX_FLAGS is a single space-separated string; set() with two
+    # arguments would make it a list, whose ';' breaks user-supplied flags.
+    string(APPEND CMAKE_CXX_FLAGS " -pthread")
 endif ()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -35,8 +37,33 @@ find_package(HPX QUIET)
 if (HPX_FOUND)
     message("-- HPX Found")
     add_compile_definitions(HAVE_HPX=1)
+
+    # hpx::two_counter_lock and hpx::two_counter_semaphore exist only in
+    # newer HPX versions; benchmark them only when the found HPX has them.
+    # The check caches its result; clear it so that pointing HPX_DIR at a
+    # different HPX re-runs the check.
+    include(CheckCXXSourceCompiles)
+    include(CMakePushCheckState)
+    unset(HAVE_HPX_TWO_COUNTER CACHE)
+    cmake_push_check_state(RESET)
+    set(CMAKE_REQUIRED_LIBRARIES HPX::hpx)
+    check_cxx_source_compiles("
+        #include <hpx/mutex.hpp>
+        int main() {
+            hpx::two_counter_lock lock;
+            hpx::two_counter_semaphore<1> semaphore;
+        }" HAVE_HPX_TWO_COUNTER)
+    cmake_pop_check_state()
+    if (HAVE_HPX_TWO_COUNTER)
+        message("-- HPX has two_counter_lock and two_counter_semaphore")
+        add_compile_definitions(HAVE_HPX_TWO_COUNTER=1)
+    else ()
+        message("-- HPX two_counter_lock check failed (see the logs in CMakeFiles); not benchmarking them")
+        add_compile_definitions(HAVE_HPX_TWO_COUNTER=0)
+    endif ()
 else ()
     add_compile_definitions(HAVE_HPX=0)
+    add_compile_definitions(HAVE_HPX_TWO_COUNTER=0)
 endif ()
 
 cmake_host_system_information(RESULT N_LOGICAL_CORES

@@ -11,6 +11,7 @@ parser.add_argument('psweet_file', type=str, help='the file name')
 parser.add_argument('--category', type=str, default='locks', help='category to plot')
 parser.add_argument('--work-size', type=int, help='work size to plot')
 parser.add_argument('--num-threads', type=int, help='number of threads to plot')
+parser.add_argument('--hpx-threads', type=int, help='number of HPX worker threads to plot (0 for runs outside HPX)')
 parser.add_argument('--cpu-check', action='store_true', default=False, help='check that the number of cpus match the current machine')
 pres=parser.parse_args(sys.argv[1:])
 
@@ -75,8 +76,20 @@ with open(pres.psweet_file, 'r') as csvfile:
     bins = dict()
     work_size = pres.work_size
     num_threads = pres.num_threads
+    hpx_threads = pres.hpx_threads
+    # The nonzero HPX worker counts among the selected rows.
+    seen_hpx_threads = set()
     for row in reader:
         if row['category'] != pres.category:
+            continue
+
+        # Filter by HPX worker count only when asked, so that by default
+        # std::thread and HPX results still share one table. Files written
+        # before the hpxThreads column existed lack it; count their rows as 0
+        # (not run under HPX). This filter comes before the defaults for
+        # work_size and num_threads below, so they come from a matching row.
+        row_hpx_threads = int(row.get('hpxThreads') or 0)
+        if hpx_threads is not None and row_hpx_threads != hpx_threads:
             continue
 
         if work_size is None:
@@ -89,7 +102,12 @@ with open(pres.psweet_file, 'r') as csvfile:
         if int(row['nThreads']) != num_threads:
             continue
 
+        if row_hpx_threads != 0:
+            seen_hpx_threads.add(row_hpx_threads)
+
         label = f"{row['machine']}:{row['workPerThread']}:{row['nThreads']}"
+        if hpx_threads is not None:
+            label += f":{hpx_threads}"
 
         info.set_machine(row['machine'])
         info.set_work(int(row['workPerThread']))
@@ -100,6 +118,18 @@ with open(pres.psweet_file, 'r') as csvfile:
             bins[bin0] = Stat()
         ms = int(row['ms'])
         bins[bin0].add(ms)
+
+if not bins:
+    sys.exit(f"{pres.psweet_file}: no rows match the requested category, work size, and thread counts")
+# Averaging HPX runs with different worker counts would mix configurations.
+if len(seen_hpx_threads) > 1:
+    sys.exit(f"{pres.psweet_file}: the selected rows have several HPX worker counts "
+             f"({', '.join(map(str, sorted(seen_hpx_threads)))}); select one with --hpx-threads")
+# Without --hpx-threads, still name the one HPX worker count in the label and
+# caption.
+if hpx_threads is None and len(seen_hpx_threads) == 1:
+    hpx_threads = next(iter(seen_hpx_threads))
+    label += f":{hpx_threads}"
 
 def texify(s):
     ns = ""
@@ -133,5 +163,5 @@ with open("psweet.tex", "w") as fd:
         print(r"\hline",file=fd)
     print(r"\end{tabular}",file=fd)
     print(r"\label{" + label + "}", file=fd)
-    print(r"\caption{" + pres.category + " benchmark for " + info.machine + f", work: {info.work}, threads: {info.threads}, model: {info.model}"+r"}", file=fd)
+    print(r"\caption{" + pres.category + " benchmark for " + info.machine + f", work: {info.work}, threads: {info.threads}" + ("" if hpx_threads is None else f", HPX workers: {hpx_threads}") + f", model: {info.model}"+r"}", file=fd)
     print(r"\end{figure}",file=fd)
