@@ -1,5 +1,6 @@
 package edu.lsu.cct.parallelsuite.bench;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,6 +13,10 @@ import java.nio.file.StandardOpenOption;
  * Column order matches C++ writeBenchResult in Bench.hpp.
  */
 public final class BenchParameters {
+    // The same columns as C++ BenchResultHeader. Java never runs under HPX, so
+    // hpxThreads is always 0.
+    private static final String HEADER = "lang,category,specific,machine,nThreads,workPerThread,ms,debug,hpxThreads";
+
     private final String lang;
     private final String category;
     private final String machine;
@@ -33,6 +38,7 @@ public final class BenchParameters {
         String out = System.getenv("PSWEET_OUT_PATH");
         // Paths.get is on Java 10. Path.of is Java 11, and this jar is built -target 1.10.
         outPath = Paths.get(out == null || out.isEmpty() ? "psweet.csv" : out);
+        checkHeader(outPath);
 
         String cool = System.getenv("PSWEET_COOLDOWN");
         cooldownMs = cool == null || cool.isEmpty() ? 0 : parseInt(cool, "PSWEET_COOLDOWN");
@@ -72,21 +78,43 @@ public final class BenchParameters {
     }
 
     public void writeResult(String specific, long ms) throws IOException {
-        boolean writeHeader = !Files.exists(outPath);
+        boolean writeHeader = !Files.exists(outPath) || Files.size(outPath) == 0;
         var options = writeHeader
                 ? new StandardOpenOption[]{StandardOpenOption.CREATE, StandardOpenOption.WRITE}
                 : new StandardOpenOption[]{StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND};
         try (BufferedWriter writer = Files.newBufferedWriter(outPath, options)) {
             if (writeHeader) {
-                writer.write("lang,category,specific,machine,nThreads,workPerThread,ms,debug");
+                writer.write(HEADER);
                 writer.newLine();
             }
             // C++ streams a bool as 0 or 1. Match that, not Java's "true"/"false".
             writer.write(lang + "," + category + "," + specific + "," + machine + ","
-                    + nThreads + "," + workPerThread + "," + ms + "," + (debug ? 1 : 0));
+                    + nThreads + "," + workPerThread + "," + ms + "," + (debug ? 1 : 0) + ",0");
             writer.newLine();
         }
         System.out.println("Wrote to " + outPath.toAbsolutePath());
+    }
+
+    /**
+     * Refuses to append rows to a results file written with a different set
+     * of columns (e.g. one from before hpxThreads was added), as C++ does;
+     * the rows would not line up with its header.
+     */
+    private static void checkHeader(Path path) {
+        try {
+            if (!Files.exists(path) || Files.size(path) == 0) {
+                return;
+            }
+            try (BufferedReader reader = Files.newBufferedReader(path)) {
+                String header = reader.readLine();
+                if (!HEADER.equals(header)) {
+                    throw new IllegalArgumentException("PSWEET_OUT_PATH " + path + " has header \"" + header
+                            + "\", expected \"" + HEADER + "\"; use a new output file");
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot read PSWEET_OUT_PATH " + path, e);
+        }
     }
 
     public static int optionalInt(String name, int fallback) {

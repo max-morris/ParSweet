@@ -49,7 +49,7 @@ built from a mutex and a condition variable. It also reads:
 `psweet_fairness.csv`.
 
 ## How? (Java)
-Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches.
+Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches (hpxThreads is always 0), refusing a file with a different header.
 
 ## Who?
 See AUTHORS.
