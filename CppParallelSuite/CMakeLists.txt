@@ -179,6 +179,14 @@ if (HPX_FOUND)
                        threadlocal/ThreadLocalRand.cpp
                        threadlocal/ThreadId.cpp
                        locks/LockTraits.hpp)
+
+    add_hpx_executable(BenchLockFairness
+                       SOURCES bench/Bench.hpp
+                       bench/BenchLockFairness.cpp
+                       bench/BlackBox.hpp
+                       threadlocal/ThreadLocalRand.cpp
+                       threadlocal/ThreadId.cpp
+                       locks/LockTraits.hpp)
 else ()
     add_executable(BenchSetByLocks
                    bench/Bench.hpp
@@ -191,6 +199,14 @@ else ()
     add_executable(BenchMapByLocks
                    bench/Bench.hpp
                    bench/BenchMapByLocks.cpp
+                   bench/BlackBox.hpp
+                   threadlocal/ThreadLocalRand.cpp
+                   threadlocal/ThreadId.cpp
+                   locks/LockTraits.hpp)
+
+    add_executable(BenchLockFairness
+                   bench/Bench.hpp
+                   bench/BenchLockFairness.cpp
                    bench/BlackBox.hpp
                    threadlocal/ThreadLocalRand.cpp
                    threadlocal/ThreadId.cpp

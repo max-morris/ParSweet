@@ -36,6 +36,18 @@ append to a file whose header differs from its own (such as one written before t
 `utils/sweep_hpx_locks.sh` runs BenchLocks' HPX locks over a range of worker and HPX-thread counts; see the script for
 its settings. Summarize results with `utils/psweet_stats.py`, using `--hpx-threads` to select one worker count.
 
+BenchLockFairness measures how fairly each lock hands itself out, and at what cost. Each thread takes the lock
+PSWEET_WORK_PER_THREAD times. Besides the run time in PSWEET_OUT_PATH, the benchmark reports how often a thread that
+called lock() later got the lock first (overtaken and overtakenPct), and the median, 99th and 99.9th percentiles and
+maximum of the time spent waiting in lock(). A first-come, first-served lock is never overtaken, except when a thread
+is descheduled between taking its arrival number and calling lock(); that shows up as a few tenths of a percent in C++
+and up to a few percent in Java. For comparison the benchmark also times TicketCvLock, a first-come, first-served lock
+built from a mutex and a condition variable. It also reads:
+* PSWEET_CS_WORK (Optional) - Units of busy work (each a few nanoseconds) done while holding the lock; defaults to 50.
+* PSWEET_NONCS_WORK (Optional) - Units of busy work done between releasing the lock and taking it again; defaults to 0.
+* PSWEET_FAIRNESS_OUT_PATH (Optional) - The CSV the fairness measures are appended to; defaults to
+`psweet_fairness.csv`.
+
 ## How? (Java)
 Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches.
 

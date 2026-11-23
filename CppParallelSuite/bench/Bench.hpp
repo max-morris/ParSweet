@@ -22,27 +22,32 @@ namespace parallel_bench {
 
     // A results file that is missing or empty gets a header before the first
     // row is written.
-    inline bool needsBenchResultHeader(std::string const& outPath) {
+    inline bool needsResultHeader(std::string const& outPath) {
         return !std::filesystem::exists(outPath) || std::filesystem::is_empty(outPath);
     }
 
     // Refuse to append rows to a results file written with a different set of
     // columns (e.g. one from before hpxThreads was added); the rows would not
-    // line up with its header.
-    inline void checkBenchResultHeader(std::string const& outPath) {
-        if (needsBenchResultHeader(outPath)) {
+    // line up with its header. envName is the variable that names the file,
+    // for the error message.
+    inline void checkResultHeader(std::string const& outPath, std::string const& expected, char const* envName) {
+        if (needsResultHeader(outPath)) {
             return;
         }
 
         std::ifstream f(outPath);
         std::string header;
         if (!std::getline(f, header)) {
-            throw std::runtime_error("cannot read PSWEET_OUT_PATH " + outPath);
+            throw std::runtime_error(std::string("cannot read ") + envName + " " + outPath);
         }
-        if (header != BenchResultHeader) {
-            throw std::runtime_error("PSWEET_OUT_PATH " + outPath + " has header \"" + header + "\", expected \"" +
-                                     BenchResultHeader + "\"; use a new output file");
+        if (header != expected) {
+            throw std::runtime_error(std::string(envName) + " " + outPath + " has header \"" + header +
+                                     "\", expected \"" + expected + "\"; use a new output file");
         }
+    }
+
+    inline void checkBenchResultHeader(std::string const& outPath) {
+        checkResultHeader(outPath, BenchResultHeader, "PSWEET_OUT_PATH");
     }
 
     class BenchParameters {
@@ -224,7 +229,7 @@ namespace parallel_bench {
         auto const& outPath = params.getOutPath();
 
         std::ofstream f;
-        if (needsBenchResultHeader(outPath)) {
+        if (needsResultHeader(outPath)) {
             f = std::ofstream(outPath);
             f << BenchResultHeader << std::endl;
         } else {
