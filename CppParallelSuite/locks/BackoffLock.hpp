@@ -43,7 +43,7 @@ namespace parallel_suite::locks {
 
     template <int MinDelay, int MaxDelay>
     struct LockTraits<locks::BackoffLock<MinDelay, MaxDelay>> {
-        constexpr static char const* name = "BackoffLock";
+        constexpr static char const* name = TemplatedLockName<"BackoffLock", MinDelay, MaxDelay>::value;
     };
 } // namespace parallel_suite::locks
 
