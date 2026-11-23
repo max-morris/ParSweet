@@ -51,6 +51,12 @@ built from a mutex and a condition variable. It also reads:
 ## How? (Java)
 Build JavaParallelSuite with CMake. The benchmark harness is edu.lsu.cct.parallelsuite.bench.BenchParameters. It reads the same PSWEET_NTHREADS, PSWEET_WORK_PER_THREAD, PSWEET_MACHINE, PSWEET_OUT_PATH, PSWEET_COOLDOWN, and PSWEET_WHICH variables listed above and appends the same CSV columns as the C++ benches (hpxThreads is always 0), refusing a file with a different header.
 
+edu.lsu.cct.parallelsuite.bench.BenchLockFairness is the Java BenchLockFairness. It reads the same variables and writes
+the same fairness CSV as the C++ one, and also times ReentrantLock(true), the JDK's own fair lock, as
+`ReentrantLock(fair)`. Before timing, it warms up the JIT by running every selected lock, untimed,
+PSWEET_WARMUP_ROUNDS times (default 5). It reads PSWEET_N_THREADS_ALLOC (default: 6/5 of the processor count, plus 1)
+at runtime to size the Anderson locks, where C++ reads it when built.
+
 ## Who?
 See AUTHORS.
 

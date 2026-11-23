@@ -53,6 +53,18 @@ public final class BenchParameters {
         debug = assertions;
     }
 
+    public String getLang() {
+        return lang;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public String getMachine() {
+        return machine;
+    }
+
     public int getNThreads() {
         return nThreads;
     }
