@@ -21,6 +21,7 @@
 #include "../locks/TIdLock.hpp"
 #include "../locks/TTASLock.hpp"
 #include "../locks/TwoCounterLock.hpp"
+#include "../locks/TwoCounterSemaphore.hpp"
 #include "BlackBox.hpp"
 
 namespace parallel_bench::locks {
@@ -106,6 +107,7 @@ std::unordered_map<std::string, std::function<void(BenchParameters const&)>> tes
         {"TASLock", benchLockWrapper<TASLock>()},
         {"TTASLock", benchLockWrapper<TTASLock>()},
         {"TwoCounterLock", benchLockWrapper<TwoCounterLock>()},
+        {"TwoCounterSemaphore<1>", benchLockWrapper<TwoCounterSemaphore<1>>()},
         {"std::mutex", benchLockWrapper<std::mutex>()},
         {"std::recursive_mutex", benchLockWrapper<std::recursive_mutex>()}};
 

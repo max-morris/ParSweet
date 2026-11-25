@@ -81,8 +81,13 @@ add_executable(TestLocks
                locks/IdLock.hpp
                locks/TIdLock.hpp
                locks/TwoCounterLock.hpp
+               locks/TwoCounterSemaphore.hpp
                locks/OptimizedALock.hpp
                locks/AndersonLock.hpp)
+
+add_executable(TestSemaphores
+               bench/test/TestSemaphores.cpp
+               locks/TwoCounterSemaphore.hpp)
 
 add_executable(TestSets
                bench/test/TestSets.cpp
@@ -171,6 +176,11 @@ enable_testing()
 
 add_test(NAME TestLocks
          COMMAND ./TestLocks)
+add_test(NAME TestSemaphores
+         COMMAND ./TestSemaphores)
+# A semaphore that admits too few holders hangs rather than failing; the
+# timeout turns that hang into a test failure.
+set_tests_properties(TestSemaphores PROPERTIES TIMEOUT 3600)
 add_test(NAME TestBarrier
          COMMAND ./TestBarrier)
 add_test(NAME TestSets
