@@ -95,7 +95,7 @@ namespace parallel_suite::locks {
 
     template <usize Permits>
     struct LockTraits<TwoCounterSemaphore<Permits>> {
-        constexpr static char const* name = "TwoCounterSemaphore";
+        constexpr static char const* name = TemplatedLockName<"TwoCounterSemaphore", Permits>::value;
     };
 } // namespace parallel_suite::locks
 

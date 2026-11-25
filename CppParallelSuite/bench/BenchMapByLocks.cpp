@@ -45,6 +45,17 @@ namespace parallel_suite::locks {
     struct LockTraits<hpx::spinlock> {
         constexpr static char const* name = "hpx::spinlock";
     };
+#if HAVE_HPX_TWO_COUNTER
+    template <>
+    struct LockTraits<hpx::two_counter_lock> {
+        constexpr static char const* name = "hpx::two_counter_lock";
+    };
+
+    template <>
+    struct LockTraits<hpx::two_counter_semaphore<1>> {
+        constexpr static char const* name = "hpx::two_counter_semaphore<1>";
+    };
+#endif
 #endif
 } // namespace parallel_suite::locks
 
@@ -157,6 +168,28 @@ namespace parallel_bench::maps {
 using namespace parallel_bench;
 using namespace parallel_bench::maps;
 
+// The locks the benchmark loops over, outside and inside HPX.
+using StdLocks = locks::LockList<std::mutex,
+                                 std::recursive_mutex,
+                                 locks::ALock<N_THREADS_ALLOC>,
+                                 locks::BackoffLock<1, 17>,
+                                 locks::CLHLock,
+                                 locks::IdLock,
+                                 locks::MCSLock,
+                                 locks::OptimizedALock<N_THREADS_ALLOC>,
+                                 locks::TASLock,
+                                 locks::TIdLock,
+                                 locks::TTASLock,
+                                 locks::TwoCounterLock,
+                                 locks::TwoCounterSemaphore<1>>;
+#if HAVE_HPX
+#if HAVE_HPX_TWO_COUNTER
+using HpxLocks = locks::LockList<hpx::mutex, hpx::spinlock, hpx::two_counter_lock, hpx::two_counter_semaphore<1>>;
+#else
+using HpxLocks = locks::LockList<hpx::mutex, hpx::spinlock>;
+#endif
+#endif
+
 template <template <typename, typename, auto, typename> class Map, usize Buckets, MutexType Mutex, typename... Rest>
 void benchMaps(BenchParameters const& params, std::string const& mapName, std::optional<std::string> const& which) {
     auto lockName = locks::LockTraits<Mutex>::name;
@@ -175,6 +208,12 @@ void benchMaps(BenchParameters const& params, std::string const& mapName, std::o
     if constexpr (sizeof...(Rest) > 0) {
         benchMaps<Map, Buckets, Rest...>(params, mapName, which);
     }
+}
+
+// Runs benchMaps() over the locks of a LockList, with the PSWEET_WHICH selection.
+template <template <typename, typename, auto, typename> class Map, usize Buckets, MutexType... Locks>
+void benchMapsOf(locks::LockList<Locks...>, BenchParameters const& params, std::string const& mapName) {
+    benchMaps<Map, Buckets, Locks...>(params, mapName, params.getWhich());
 }
 
 #if HAVE_HPX
@@ -198,12 +237,17 @@ void benchMapsHpx(BenchParameters const& params, std::string const& mapName, std
     }
 }
 
+// Runs benchMapsHpx() over the locks of a LockList, with the PSWEET_WHICH selection.
+template <template <typename, typename, auto, typename> class Map, usize Buckets, MutexType... Locks>
+void benchMapsHpxOf(locks::LockList<Locks...>, BenchParameters const& params, std::string const& mapName) {
+    benchMapsHpx<Map, Buckets, Locks...>(params, mapName, params.getWhich());
+}
+
 int hpx_main() {
     BenchParameters params("c++", "mapByLocks");
+    params.setHpxThreads(hpx::get_os_thread_count());
 
-    benchMapsHpx<LockHashMap, 16,
-                 hpx::mutex,
-                 hpx::spinlock>(params, "LockHashMap", params.getWhich());
+    benchMapsHpxOf<LockHashMap, 16>(HpxLocks{}, params, "LockHashMap");
 
     return hpx::finalize();
 }
@@ -212,23 +256,17 @@ int hpx_main() {
 int main() {
     BenchParameters params("c++", "mapByLocks");
 
-    benchMaps<LockHashMap, 16,
-              std::mutex,
-              std::recursive_mutex,
-              locks::ALock<N_THREADS_ALLOC>,
-              locks::BackoffLock<1, 17>,
-              locks::CLHLock,
-              locks::IdLock,
-              locks::MCSLock,
-              locks::OptimizedALock<N_THREADS_ALLOC>,
-              locks::TASLock,
-              locks::TIdLock,
-              locks::TTASLock,
-              locks::TwoCounterLock,
-              locks::TwoCounterSemaphore<1>>(params, "LockHashMap", params.getWhich());
+#if HAVE_HPX
+    bool const startHpx = checkWhich(params, "BenchMapByLocks", StdLocks::names(), HpxLocks::names());
+#else
+    checkWhich(params, "BenchMapByLocks", StdLocks::names(), {});
+#endif
+
+    // With PSWEET_WHICH naming an HPX lock, this runs nothing.
+    benchMapsOf<LockHashMap, 16>(StdLocks{}, params, "LockHashMap");
 
 #if HAVE_HPX
-    if (params.getUseHpx()) {
+    if (startHpx) {
         return hpx::init();
     }
 #endif

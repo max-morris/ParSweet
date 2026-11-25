@@ -112,17 +112,30 @@ std::unordered_map<std::string, std::function<void(BenchParameters const&)>> tes
         {"std::recursive_mutex", benchLockWrapper<std::recursive_mutex>()}};
 
 #if HAVE_HPX
-std::unordered_map<std::string, std::function<void(BenchParameters const&)>> hpxTests{
-        {"hpx::mutex", benchHpxLockWrapper<hpx::mutex>()},
-        {"hpx::spinlock", benchHpxLockWrapper<hpx::spinlock>()}};
+// The locks behind HAVE_HPX_TWO_COUNTER are added with emplace() rather than
+// in the initializer list, where #if lines would confuse clang-format.
+std::unordered_map<std::string, std::function<void(BenchParameters const&)>> makeHpxTests() {
+    std::unordered_map<std::string, std::function<void(BenchParameters const&)>> hpxTests{
+            {"hpx::mutex", benchHpxLockWrapper<hpx::mutex>()},
+            {"hpx::spinlock", benchHpxLockWrapper<hpx::spinlock>()}};
+#if HAVE_HPX_TWO_COUNTER
+    hpxTests.emplace("hpx::two_counter_lock", benchHpxLockWrapper<hpx::two_counter_lock>());
+    hpxTests.emplace("hpx::two_counter_semaphore<1>", benchHpxLockWrapper<hpx::two_counter_semaphore<1>>());
+#endif
+    return hpxTests;
+}
+
+std::unordered_map<std::string, std::function<void(BenchParameters const&)>> hpxTests = makeHpxTests();
 
 int hpx_main() {
     BenchParameters params("c++", "locks");
+    params.setHpxThreads(hpx::get_os_thread_count());
 
+    // main() starts HPX only if PSWEET_WHICH is absent or names an HPX lock.
     auto which = params.getWhich();
-    if (which && hpxTests.contains(*which)) {
+    if (which) {
         std::cout << "(HPX) Bench: " << *which << std::endl;
-        writeBenchResult(params, *which, measure(hpxTests[*which], params));
+        writeBenchResult(params, *which, measure(hpxTests.at(*which), params));
         params.coolOff();
     } else {
         for (auto& pair : hpxTests) {
@@ -139,12 +152,26 @@ int hpx_main() {
 int main() {
     BenchParameters params("c++", "locks");
 
+    // The names of a table's tests, which checkWhich() accepts.
+    auto keys = [](auto const& table) {
+        std::vector<std::string> names;
+        for (auto const& pair : table) {
+            names.push_back(pair.first);
+        }
+        return names;
+    };
+#if HAVE_HPX
+    bool const startHpx = checkWhich(params, "BenchLocks", keys(tests), keys(hpxTests));
+#else
+    checkWhich(params, "BenchLocks", keys(tests), {});
+#endif
+
     auto which = params.getWhich();
     if (which && tests.contains(*which)) {
         std::cout << "Bench: " << *which << std::endl;
         writeBenchResult(params, *which, measure(tests[*which], params));
         params.coolOff();
-    } else {
+    } else if (!which) {
         for (auto& pair : tests) {
             std::cout << "Bench: " << pair.first << std::endl;
             writeBenchResult(params, pair.first, measure(pair.second, params));
@@ -153,7 +180,7 @@ int main() {
     }
 
 #if HAVE_HPX
-    if (params.getUseHpx()) {
+    if (startHpx) {
         return hpx::init();
     }
 #endif
