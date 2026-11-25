@@ -29,6 +29,9 @@ public class CLHLock implements SlimLock {
     }
 
     private static class QNode {
-        public boolean locked = false;
+        // Volatile, so that the holder's write of false in unlock() happens
+        // before its successor's read in lock(), ordering their critical
+        // sections; a plain field guarantees neither visibility nor order.
+        public volatile boolean locked = false;
     }
 }

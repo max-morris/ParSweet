@@ -14,7 +14,10 @@ namespace parallel_suite::locks {
     namespace clh {
         class QNode {
         public:
-            bool locked;
+            // Atomic, so that the holder's store of false in unlock()
+            // synchronizes with its successor's load in lock(), ordering
+            // their critical sections; a plain bool is a data race.
+            std::atomic<bool> locked;
             QNode() : locked(false) {}
         };
     } // namespace clh
